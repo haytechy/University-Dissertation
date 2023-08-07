@@ -71,13 +71,14 @@ def decompile(targetdir, outputdir, apktool):
 def getPermissions(dataset):
     permissionsList = []
 
-    for apk in os.listdir(dataset):
+    for sourceCode in os.listdir(dataset):
         permissions = []
-        manifest = f"{dataset}/{apk}/AndroidManifest.xml"
+        manifest = f"{dataset}/{sourceCode}/AndroidManifest.xml"
         if os.path.isfile(manifest):
             with open(manifest) as f:
-                permissions = [apk] + list(set(re.findall(r"\bandroid\.permission\.[A-Z_]*\b", f.read())))
-        permissionsList.append(permissions)
+                permissions = re.findall(r'<uses-permission.*', f.read())
+                permissions = [re.search(r'"(.*?)"', permission).group()[1:-1] for permission in permissions if re.search(r'"(.*?)"', permission)]
+        permissionsList.append({"hash": sourceCode, "permissions": set(permissions)})
     return permissionsList
 
 if __name__ == "__main__":
@@ -96,14 +97,14 @@ if __name__ == "__main__":
     reportParser.add_argument('targetfolder', type=str, help="Target Folder")
     reportParser.add_argument('-o', help="Output File", dest="outputfile")
 
-    permissionParser = subparsers.add_parser("permission", help="Get Permissions based off decompile dataset")
+    permissionParser = subparsers.add_parser("permission", help="Get Permissions based off decompile datasets")
     permissionParser.add_argument('targetfolder', type=str, help="Target Sample Folder")
 
     decompileParser = subparsers.add_parser("decompile", help="Extract folder containg samples")
     decompileParser.add_argument('targetfolder', type=str, help="Target Folder")
     decompileParser.add_argument('-o', help="Output Folder", dest="outputfolder")
 
-    classesParser = subparsers.add_parser("classes", help="Extract folder containg samples")
+    classesParser = subparsers.add_parser("classes", help="Extracts classes from decompiled datasets")
     classesParser.add_argument('targetfolder', type=str, help="Target Sample Folder")
 
     if len(sys.argv)==1:
@@ -117,7 +118,6 @@ if __name__ == "__main__":
             hashes = getMalwareByFamily(["Cerberus", "Hydra", "FluBot", "Octo", "Ermac"])
         if args.mode == "recent":
             hashes = getRecentMalware(1000)
-            print(len(hashes))
         outputdir = args.outputfolder
         if not os.path.exists(outputdir):
             for hash in hashes:
@@ -146,7 +146,7 @@ if __name__ == "__main__":
         targetdir = args.targetfolder
         permissions = getPermissions(targetdir)
         if permissions:
-            with open(f"data/{targetdir}Permissions.pkl", "wb") as f:
+            with open(f"data/{os.path.basename(targetdir)}Permissions.pkl", "wb") as f:
                 pickle.dump(permissions, f)
         else:
             print("Invalid Sample")
@@ -162,5 +162,5 @@ if __name__ == "__main__":
     if args.subcommand == "classes":
         targetdir = args.targetfolder
         classes = getClasses(targetdir)
-        with open(f"data/{targetdir}Classes.pkl", "wb") as f:
+        with open(f"data/{os.path.basename(targetdir)}Classes.pkl", "wb") as f:
             pickle.dump(classes, f)
