@@ -6,11 +6,20 @@ import pyzipper
 import argparse
 import os
 import sys
+import time
+import random
+from configparser import ConfigParser
+
 
 from classAnalyser import getClasses 
+from dataProccess import loadFile
+from filterHashes import generateApkHashes
 
-APIKEY = "3add204aa97a30fdfaadb86b1a4b7733b8311f1ca9d3468ea9d4619eb5815d37"
-MBURL = "https://mb-api.abuse.ch/api/v1"
+config = ConfigParser()
+config.read('config.ini')
+VTAPIKEY = config['VirusTotal']['apikey']
+VSAPIKEY = config['VirusShare']['apikey']
+MBURL = config['MalwareBazaar']['url']
 
 def getHash(query):
     response = requests.post(MBURL, data=query)
@@ -23,9 +32,14 @@ def getHash(query):
     return hashes
 
 def downloadSample(dir, hash):
-    os.mkdir(dir)
     query = {"query": "get_file", "sha256_hash": hash}
     response = requests.post(MBURL, data=query, timeout=15, allow_redirects=True)
+    open(f"{dir}/{hash}.zip", "wb").write(response.content)
+
+def downloadSampleVS(dir, hash):
+    time.sleep(15)
+    url = f"https://virusshare.com/apiv2/download?apikey={VSAPIKEY}&hash={hash}"
+    response = requests.get(url)
     open(f"{dir}/{hash}.zip", "wb").write(response.content)
 
 def getMalwareByFamily(families):
@@ -46,13 +60,14 @@ def extract(targetdir, outputdir):
             with pyzipper.AESZipFile(f"{targetdir}/{archive}") as zf:
                 zf.extractall(path=outputdir, pwd=bytes("infected", "utf-8"))
 
+
 def getReport(targetdir, outputfile):
     url = "https://www.virustotal.com/api/v3/files/"
     for _, _, files in os.walk(targetdir):
         for sample in files:
             if sample.endswith(".apk") or sample.endswith(".zip"):
                 hash = sample[:-4]
-                response = requests.get(f"{url}{hash}", headers={"x-apikey": APIKEY})
+                response = requests.get(f"{url}{hash}", headers={"accept": "application/json", "x-apikey": VTAPIKEY})
                 with open(outputfile, "a") as f:
                     json.dump(response.json(), f, ensure_ascii=False)
                     f.write("\n")
@@ -68,10 +83,26 @@ def decompile(targetdir, outputdir, apktool):
         if sample.endswith(".apk"):
             os.system(f"cd {outputdir} && java -jar {apktool} d {sample}")
 
-def getPermissions(dataset):
-    permissionsList = []
+def cleanDecodedSamples(targetdir):
+    sampleCount = 0
+    fileCount = 0
+    for decodedSample in os.listdir(targetdir):
+        fileCount += 1
+        decodedSample = os.path.join(targetdir, decodedSample)
+        if not os.listdir(decodedSample):
+            os.rmdir(decodedSample)
+        else:
+            sampleCount += 1
+    print(f"[+] {fileCount} Files processed")
+    print(f"[+] {sampleCount} Files successfully decompiled") 
+    print(f"[-] {fileCount - sampleCount} Invalid decompiled files removed") 
 
-    for sourceCode in os.listdir(dataset):
+def getPermissions(targetDir, limit):
+    permissionsList = []
+    dataset = os.listdir(targetDir) 
+    random.shuffle(dataset)
+    limit = limit if limit < len(dataset) else len(dataset)
+    for sourceCode in dataset[:limit]:
         permissions = []
         manifest = f"{dataset}/{sourceCode}/AndroidManifest.xml"
         if os.path.isfile(manifest):
@@ -81,47 +112,64 @@ def getPermissions(dataset):
         permissionsList.append({"hash": sourceCode, "permissions": set(permissions)})
     return permissionsList
 
+def writeData(data, dataSet, dataType):
+    if not os.path.exists(f"data/{dataSet}"):
+        os.makedirs(f"data/{dataSet}")
+    with open(f"data/{os.path.basename(dataSet)}/{dataType}.pkl", "wb") as f:
+        pickle.dump(data, f)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dataset Generator")
     subparsers = parser.add_subparsers(title="subcommand", dest="subcommand", description="subcommand")
     
     downloadParser = subparsers.add_parser("download", help="download")
     downloadParser.add_argument('outputfolder', type=str, help="Output Folder")
-    downloadParser.add_argument('-m', help="Download Type", dest="mode")
+    downloadParser.add_argument('-m', choices=['family', 'recent', 'recentVirusShare'], help="Download Type", dest="mode")
 
     extractParser = subparsers.add_parser("extract", help="Extract folder containg samples")
     extractParser.add_argument('targetfolder', type=str, help="Target Folder")
     extractParser.add_argument('-o', help="Output Folder", dest="outputfolder")
 
-    reportParser = subparsers.add_parser("report", help="Get VirustTotal report")
-    reportParser.add_argument('targetfolder', type=str, help="Target Folder")
-    reportParser.add_argument('-o', help="Output File", dest="outputfile")
-
-    permissionParser = subparsers.add_parser("permission", help="Get Permissions based off decompile datasets")
-    permissionParser.add_argument('targetfolder', type=str, help="Target Sample Folder")
-
     decompileParser = subparsers.add_parser("decompile", help="Extract folder containg samples")
     decompileParser.add_argument('targetfolder', type=str, help="Target Folder")
     decompileParser.add_argument('-o', help="Output Folder", dest="outputfolder")
 
+    decompileParser = subparsers.add_parser("filter", help="Filter a list of MD5 from VirusShare for APK files")
+    decompileParser.add_argument('targetfile', type=str, help="VirusShare MD5 File")
+
+    permissionParser = subparsers.add_parser("permissions", help="Get Permissions based off decompiled datasets")
+    permissionParser.add_argument('targetfolder', type=str, help="Target Sample Folder")
+    permissionParser.add_argument('-c', default=10, type=int, help="Number of Samples to get Samples", dest="size")
+
     classesParser = subparsers.add_parser("classes", help="Extracts classes from decompiled datasets")
     classesParser.add_argument('targetfolder', type=str, help="Target Sample Folder")
+    classesParser.add_argument('-c', default=10, type=int, help="Number of Samples to get Classes", dest="size")
+
+    reportParser = subparsers.add_parser("report", help="Get VirustTotal report")
+    reportParser.add_argument('targetfolder', type=str, help="Target Folder")
+    reportParser.add_argument('-o', help="Output File", dest="outputfile")
 
     if len(sys.argv)==1:
         parser.print_help()
         parser.exit()
-
     args = parser.parse_args()
+
     if args.subcommand == "download":
         hashes = []
         if args.mode == "family":
             hashes = getMalwareByFamily(["Cerberus", "Hydra", "FluBot", "Octo", "Ermac"])
         if args.mode == "recent":
             hashes = getRecentMalware(1000)
+        if args.mode == "recentVirusShare":
+            hashes = loadFile(f"VSHashes.pkl")
         outputdir = args.outputfolder
         if not os.path.exists(outputdir):
+            os.mkdir(outputdir)
             for hash in hashes:
-                downloadSample(outputdir, hash)
+                if args.mode == "recentVirusShare":
+                    downloadSampleVS(outputdir, hash)
+                else:
+                    downloadSample(outputdir, hash)
         else:
             print("Directory Exists")
 
@@ -132,8 +180,40 @@ if __name__ == "__main__":
                 extract(args.targetfolder, outputdir)
             else:
                 print("Directory Exists")
-
     
+
+    if args.subcommand == "decompile":
+        outputdir = args.outputfolder
+        if outputdir is not None:
+            if not os.path.exists(outputdir):
+                decompile(args.targetfolder, outputdir, "dependencies/apktool_2.8.1.jar")
+                cleanDecodedSamples(outputdir)
+            else:
+                print("Directory Exists")
+
+    if args.subcommand == "filter":
+        md5File = args.targetfile 
+        if os.path.exists(md5File):
+            generateApkHashes(md5File, md5File[:-4])
+
+    if args.subcommand == "permissions":
+        targetdir = args.targetfolder
+        permissions = getPermissions(targetdir, args.size)
+        dirName = os.path.basename(targetdir)
+        if permissions:
+            writeData(permissions, dirName, "permissions")
+        else:
+            print("Invalid Sample")
+
+    if args.subcommand == "classes":
+        targetdir = args.targetfolder
+        classes = getClasses(targetdir, args.size)
+        dirName = os.path.basename(targetdir)
+        if classes:
+            writeData(classes, dirName, "classes")
+        else:
+            print("Invalid Sample")
+
     if args.subcommand == "report":
         outputfile = args.outputfile
         if outputfile is not None:
@@ -141,26 +221,3 @@ if __name__ == "__main__":
                 getReport(args.targetfolder, outputfile)
             else:
                 print("Directory Exists")
-
-    if args.subcommand == "permission":
-        targetdir = args.targetfolder
-        permissions = getPermissions(targetdir)
-        if permissions:
-            with open(f"data/{os.path.basename(targetdir)}Permissions.pkl", "wb") as f:
-                pickle.dump(permissions, f)
-        else:
-            print("Invalid Sample")
-
-    if args.subcommand == "decompile":
-        outputdir = args.outputfolder
-        if outputdir is not None:
-            if not os.path.exists(outputdir):
-                decompile(args.targetfolder, outputdir, "dependencies/apktool_2.8.1.jar")
-            else:
-                print("Directory Exists")
-
-    if args.subcommand == "classes":
-        targetdir = args.targetfolder
-        classes = getClasses(targetdir)
-        with open(f"data/{os.path.basename(targetdir)}Classes.pkl", "wb") as f:
-            pickle.dump(classes, f)

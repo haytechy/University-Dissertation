@@ -1,5 +1,6 @@
 import os
 import re
+import random
 
 def formatClass(item):
     if "}," in item:
@@ -28,6 +29,7 @@ def getSmaliFolders(sourceCode):
 def getClasses(targetDir, limit=10) :
     classesList = []
     decodedSamples = os.listdir(targetDir)
+    random.shuffle(decodedSamples)
     limit = limit if limit < len(decodedSamples) else len(decodedSamples)
     for application in decodedSamples[:limit]:
         isApplication = False

@@ -1,15 +1,17 @@
 import pickle
+from collections import Counter
 
 def loadFile(dataFile):
     with open(dataFile, "rb") as f:
         data = pickle.load(f)
-    print(data[0]["permissions"])
     return data
 
-def getPermissions(dataFile):
-    with open(dataFile, "rb") as f:
-        permissionsData = pickle.load(f)
-    print(permissionsData)
+def getPermissionsFrequncy(data):
+    permissionFrequency = Counter()
+    for application in data:
+        permissionFrequency += Counter(application['permissions'])
+    print(permissionFrequency.most_common(20))
+
 
 def getClassFrequency(dataFile):
     with open(dataFile, "rb") as f:
@@ -26,4 +28,9 @@ def getClassFrequency(dataFile):
 #getClassFrequency("data/MalwareBazaarRecentDecodedClasses.pkl")
 #getClassFrequency("data/MalwareBazaarRecentDecodedExternelClasses.pkl")
 #getClassFrequency("data/testClasses.pkl")
-permissions = loadFile("data/testPermissions.pkl")
+#permissions = loadFile("data/CICAndMal2017DecodedPermissions.pkl")
+#getPermissionsFrequncy(permissions)
+#permissions = loadFile("data/MalwareBazaarRecentDecodedPermissions.pkl")
+#getPermissionsFrequncy(permissions)
+#permissions = loadFile("data/MalwareBazaarFamilyDecodedPermissions.pkl")
+#getPermissionsFrequncy(permissions)
