@@ -10,7 +10,6 @@ import time
 import random
 from configparser import ConfigParser
 
-
 from classAnalyser import getClasses 
 from dataProccess import loadFile
 from filterHashes import generateApkHashes

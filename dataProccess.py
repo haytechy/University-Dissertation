@@ -18,19 +18,3 @@ def getClassFrequency(dataFile):
         classesData = pickle.load(f)
 
     print(classesData[0]["hash"])
-    
-   # for classes in classesList:
-   #     classesFrequency += Counter(classes)
-
-   # print(classesFrequency.most_common(20))
-
-#getClassFrequency("data/CICAndMal2017DecodedClasses.pkl")
-#getClassFrequency("data/MalwareBazaarRecentDecodedClasses.pkl")
-#getClassFrequency("data/MalwareBazaarRecentDecodedExternelClasses.pkl")
-#getClassFrequency("data/testClasses.pkl")
-#permissions = loadFile("data/CICAndMal2017DecodedPermissions.pkl")
-#getPermissionsFrequncy(permissions)
-#permissions = loadFile("data/MalwareBazaarRecentDecodedPermissions.pkl")
-#getPermissionsFrequncy(permissions)
-#permissions = loadFile("data/MalwareBazaarFamilyDecodedPermissions.pkl")
-#getPermissionsFrequncy(permissions)
