@@ -10,9 +10,9 @@ import time
 import random
 from configparser import ConfigParser
 
-from classAnalyser import getClasses 
-from dataProccess import loadFile
-from filterHashes import generateApkHashes
+from core.classAnalyser import getClasses 
+from core.dataProccess import loadFile
+from core.filterHashes import generateApkHashes
 
 config = ConfigParser()
 config.read('config.ini')
@@ -27,7 +27,7 @@ def getHash(query):
     for i in range(len(data)):
         sample = data[i]
         if sample["file_type"] == "apk":
-            hashes.append(sample["sha256_hash"])
+            hashes.append(sample["sha257_hash"])
     return hashes
 
 def downloadSample(dir, hash):
@@ -103,10 +103,11 @@ def getPermissions(targetDir, limit):
     limit = limit if limit < len(dataset) else len(dataset)
     for sourceCode in dataset[:limit]:
         permissions = []
-        manifest = f"{dataset}/{sourceCode}/AndroidManifest.xml"
+        manifest = f"{targetDir}/{sourceCode}/AndroidManifest.xml"
+        print(manifest)
         if os.path.isfile(manifest):
             with open(manifest) as f:
-                permissions = re.findall(r'<uses-permission.*', f.read())
+                permissions = re.findall(r'<uses-permission.*', f.read()) #Regex to extraction permissions from AnroidManifest
                 permissions = [re.search(r'"(.*?)"', permission).group()[1:-1] for permission in permissions if re.search(r'"(.*?)"', permission)]
         permissionsList.append({"hash": sourceCode, "permissions": set(permissions)})
     return permissionsList
@@ -125,16 +126,16 @@ if __name__ == "__main__":
     downloadParser.add_argument('outputfolder', type=str, help="Output Folder")
     downloadParser.add_argument('-m', choices=['family', 'recent', 'recentVirusShare'], help="Download Type", dest="mode")
 
-    extractParser = subparsers.add_parser("extract", help="Extract folder containg samples")
+    extractParser = subparsers.add_parser("extract", help="Extract folder containg zipped samples")
     extractParser.add_argument('targetfolder', type=str, help="Target Folder")
     extractParser.add_argument('-o', help="Output Folder", dest="outputfolder")
 
-    decompileParser = subparsers.add_parser("decompile", help="Extract folder containg samples")
+    decompileParser = subparsers.add_parser("decompile", help="Decompile folder containg APK samples")
     decompileParser.add_argument('targetfolder', type=str, help="Target Folder")
     decompileParser.add_argument('-o', help="Output Folder", dest="outputfolder")
 
-    decompileParser = subparsers.add_parser("filter", help="Filter a list of MD5 from VirusShare for APK files")
-    decompileParser.add_argument('targetfile', type=str, help="VirusShare MD5 File")
+    filterParser = subparsers.add_parser("filter", help="Filter a list of MD5 from VirusShare for APK files")
+    filterParser.add_argument('targetfile', type=str, help="VirusShare MD5 File")
 
     permissionParser = subparsers.add_parser("permissions", help="Get Permissions based off decompiled datasets")
     permissionParser.add_argument('targetfolder', type=str, help="Target Sample Folder")
@@ -179,6 +180,8 @@ if __name__ == "__main__":
                 extract(args.targetfolder, outputdir)
             else:
                 print("Directory Exists")
+        else:
+            print("Required Output Folder")
     
 
     if args.subcommand == "decompile":
@@ -189,9 +192,12 @@ if __name__ == "__main__":
                 cleanDecodedSamples(outputdir)
             else:
                 print("Directory Exists")
+        else:
+            print("Required Output Folder")
 
     if args.subcommand == "filter":
         md5File = args.targetfile 
+        print(md5File[:-4])
         if os.path.exists(md5File):
             generateApkHashes(md5File, md5File[:-4])
 

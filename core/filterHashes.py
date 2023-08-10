@@ -1,10 +1,11 @@
 import requests
 import pickle
+import os
 from concurrent.futures import ThreadPoolExecutor
 from configparser import ConfigParser
 
 config = ConfigParser()
-config.read('config.ini')
+config.read(os.path.abspath('config.ini'))
 VTAPIKEY = config['VirusTotal']['apikey']
 
 def getType(hash):
@@ -20,18 +21,21 @@ def getType(hash):
     except:
         return None
 
-def md5List(file):
+def listmd5(file):
     with open(f"{file}") as f:
         md5List = [md5.strip("\n") for md5 in f.readlines()[6:]]
     return md5List
 
-def generateApkHashes(md5List, file, limit=10):
+def generateApkHashes(md5File, outputFile, limit=19000):
+    #with open(f"{outputFile}.pkl", "rb") as f:
+    #    apkHashes = pickle.load(f)
     apkHashes = []
-    executor = ThreadPoolExecutor(max_workers=10)
+    md5List = listmd5(md5File)
+    executor = ThreadPoolExecutor(max_workers=5)
 
-    for hash in executor.map(getType,  md5List[:limit]):
+    for hash in executor.map(getType,  md5List[:10000]):
         if hash is not None:
             apkHashes.append(hash)
 
-    with open(f"{file}", "wb") as f:
+    with open(f"{outputFile}.pkl", "wb") as f:
         pickle.dump(apkHashes, f)

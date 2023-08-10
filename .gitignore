@@ -1,6 +1,6 @@
-/datasets
-/test
-/__pycache__
-/VSReport
-/data
+datasets/
+test/
+__pycache__/
+VSReport/
+data/
 config.ini
