@@ -1,5 +1,4 @@
 import requests
-import pickle
 import os
 from concurrent.futures import ThreadPoolExecutor
 from configparser import ConfigParser
@@ -26,16 +25,13 @@ def listmd5(file):
         md5List = [md5.strip("\n") for md5 in f.readlines()[6:]]
     return md5List
 
-def generateApkHashes(md5File, outputFile, limit=19000):
-    #with open(f"{outputFile}.pkl", "rb") as f:
-    #    apkHashes = pickle.load(f)
-    apkHashes = []
-    md5List = listmd5(md5File)
-    executor = ThreadPoolExecutor(max_workers=5)
+def generateApkHashes(md5File, apkHashes):
+    if apkHashes:
+        md5List = listmd5(md5File)
+        executor = ThreadPoolExecutor(max_workers=5)
 
-    for hash in executor.map(getType,  md5List[:10000]):
-        if hash is not None:
-            apkHashes.append(hash)
+        for hash in executor.map(getType,  md5List[36000:50000]):
+            if hash is not None:
+                apkHashes.append(hash)
+    return apkHashes
 
-    with open(f"{outputFile}.pkl", "wb") as f:
-        pickle.dump(apkHashes, f)

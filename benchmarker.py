@@ -1,13 +1,13 @@
 from core.androguardAnalyser import getPermissionsAndClasses
 from core.classAnalyser import getClasses
-from tool import getPermissions, decompile, cleanDecodedSamples
+from core.dataProcess import readData, writeData
+from droidloader import getPermissions, decompile, cleanDecodedSamples
 import timeit
 import random
 import os
 import shutil
 
 def generateSample(targetDir, size, datasets=['datasets/MalwareBazaarRecent', 'datasets/CICAndMal2017']):
-    print(targetDir)
     samples = []
     for dataset in datasets:
         datasetSamples = []
@@ -29,14 +29,15 @@ def permissionsAndClassesTime(sampleDir, size):
     permissions = getPermissions(sampleDir, size)
     classes = getClasses(sampleDir, size)
     return permissions, classes
-    
 
-def permissionsAndClassesAndroguardTime(dir, size):
-    permissions, classes = getPermissionsAndClasses(dir, size)
+def permissionsAndClassesAndroguardTime(sampleDir, size):
+    permissions, classes = getPermissionsAndClasses(sampleDir, size)
     return permissions, classes
 
 if __name__ == "__main__":
     sampleSize = [10, 25, 50, 100]
+    times = readData('data/Benchmark/times.pkl')
+    print(times)
     sampleDir = 'datasets/Benchmark'
     decodedDir = 'datasets/BenchmarkDecoded'
     for size in sampleSize:
@@ -44,5 +45,9 @@ if __name__ == "__main__":
             shutil.rmtree(sampleDir)
         os.mkdir(sampleDir)
         generateSample(sampleDir, size)
-        execTime = timeit.timeit(lambda: decompileTime(sampleDir, decodedDir), number=1)
-        print(execTime)
+        execTimeDecompile = timeit.timeit(lambda: decompileTime(sampleDir, decodedDir), number=1)
+        execTime = timeit.timeit(lambda: permissionsAndClassesTime(decodedDir, size), number=1)
+        execTimeAndroguard = timeit.timeit(lambda: permissionsAndClassesAndroguardTime(sampleDir, size), number=1)
+        times.append({"sampleSize": size, "decompileTime": execTimeDecompile, "droidloader": execTime, "androguard": execTimeAndroguard})
+        writeData(times, "Benchmark", "times")
+

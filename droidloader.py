@@ -1,5 +1,4 @@
 import requests
-import pickle
 import re
 import json
 import pyzipper
@@ -11,8 +10,8 @@ import random
 from configparser import ConfigParser
 
 from core.classAnalyser import getClasses 
-from core.dataProccess import loadFile
 from core.filterHashes import generateApkHashes
+from core.dataProcess import readData, writeData
 
 config = ConfigParser()
 config.read('config.ini')
@@ -104,22 +103,16 @@ def getPermissions(targetDir, limit):
     for sourceCode in dataset[:limit]:
         permissions = []
         manifest = f"{targetDir}/{sourceCode}/AndroidManifest.xml"
-        print(manifest)
         if os.path.isfile(manifest):
             with open(manifest) as f:
-                permissions = re.findall(r'<uses-permission.*', f.read()) #Regex to extraction permissions from AnroidManifest
+                permissions = re.findall(r'<uses-permission.[^<]*\/>', f.read()) #Regex to extraction permissions from AnroidManifest
                 permissions = [re.search(r'"(.*?)"', permission).group()[1:-1] for permission in permissions if re.search(r'"(.*?)"', permission)]
         permissionsList.append({"hash": sourceCode, "permissions": set(permissions)})
     return permissionsList
 
-def writeData(data, dataSet, dataType):
-    if not os.path.exists(f"data/{dataSet}"):
-        os.makedirs(f"data/{dataSet}")
-    with open(f"data/{os.path.basename(dataSet)}/{dataType}.pkl", "wb") as f:
-        pickle.dump(data, f)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Dataset Generator")
+    parser = argparse.ArgumentParser(description="Dataset Generator", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     subparsers = parser.add_subparsers(title="subcommand", dest="subcommand", description="subcommand")
     
     downloadParser = subparsers.add_parser("download", help="download")
@@ -138,11 +131,11 @@ if __name__ == "__main__":
     filterParser.add_argument('targetfile', type=str, help="VirusShare MD5 File")
 
     permissionParser = subparsers.add_parser("permissions", help="Get Permissions based off decompiled datasets")
-    permissionParser.add_argument('targetfolder', type=str, help="Target Sample Folder")
-    permissionParser.add_argument('-c', default=10, type=int, help="Number of Samples to get Samples", dest="size")
+    permissionParser.add_argument('targetfolder', type=str, help="Target Decoded Sample Folder")
+    permissionParser.add_argument('-c', default=10, type=int, help="Number of Samples to get Permissions", dest="size")
 
     classesParser = subparsers.add_parser("classes", help="Extracts classes from decompiled datasets")
-    classesParser.add_argument('targetfolder', type=str, help="Target Sample Folder")
+    classesParser.add_argument('targetfolder', type=str, help="Target Decoded Sample Folder")
     classesParser.add_argument('-c', default=10, type=int, help="Number of Samples to get Classes", dest="size")
 
     reportParser = subparsers.add_parser("report", help="Get VirustTotal report")
@@ -161,15 +154,16 @@ if __name__ == "__main__":
         if args.mode == "recent":
             hashes = getRecentMalware(1000)
         if args.mode == "recentVirusShare":
-            hashes = loadFile(f"VSHashes.pkl")
+            hashes = readData("VSHashes.pkl")
         outputdir = args.outputfolder
         if not os.path.exists(outputdir):
             os.mkdir(outputdir)
-            for hash in hashes:
-                if args.mode == "recentVirusShare":
-                    downloadSampleVS(outputdir, hash)
-                else:
-                    downloadSample(outputdir, hash)
+            if hashes:
+                for hash in hashes:
+                    if args.mode == "recentVirusShare":
+                        downloadSampleVS(outputdir, hash)
+                    else:
+                        downloadSample(outputdir, hash)
         else:
             print("Directory Exists")
 
@@ -181,7 +175,7 @@ if __name__ == "__main__":
             else:
                 print("Directory Exists")
         else:
-            print("Required Output Folder")
+            print("Output Folder Required (-o)")
     
 
     if args.subcommand == "decompile":
@@ -197,9 +191,11 @@ if __name__ == "__main__":
 
     if args.subcommand == "filter":
         md5File = args.targetfile 
-        print(md5File[:-4])
         if os.path.exists(md5File):
-            generateApkHashes(md5File, md5File[:-4])
+            outputFileName = os.path.basename(md5File)[:-4]
+            apkHashes = readData(f"data/VirusShare/{outputFileName}.pkl") # Get saved hashes
+            apkHashes = generateApkHashes(md5File, apkHashes)
+            writeData(apkHashes, "VirusShare", outputFileName)
 
     if args.subcommand == "permissions":
         targetdir = args.targetfolder

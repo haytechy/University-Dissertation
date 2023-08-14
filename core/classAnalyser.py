@@ -26,7 +26,7 @@ def returnFiles(path, smaliFolder):
 def getSmaliFolders(sourceCode):
     return [file for file in sourceCode if re.search(r'smali_classes\d+|smali', file)]
 
-def getClasses(targetDir, limit) :
+def getClasses(targetDir, limit):
     classesList = []
     decodedSamples = os.listdir(targetDir)
     random.shuffle(decodedSamples)
