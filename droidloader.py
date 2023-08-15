@@ -132,11 +132,11 @@ if __name__ == "__main__":
 
     permissionParser = subparsers.add_parser("permissions", help="Get Permissions based off decompiled datasets")
     permissionParser.add_argument('targetfolder', type=str, help="Target Decoded Sample Folder")
-    permissionParser.add_argument('-c', default=10, type=int, help="Number of Samples to get Permissions", dest="size")
+    permissionParser.add_argument('-s', default=10, type=int, help="Number of Samples to get Permissions", dest="size")
 
     classesParser = subparsers.add_parser("classes", help="Extracts classes from decompiled datasets")
     classesParser.add_argument('targetfolder', type=str, help="Target Decoded Sample Folder")
-    classesParser.add_argument('-c', default=10, type=int, help="Number of Samples to get Classes", dest="size")
+    classesParser.add_argument('-s', default=10, type=int, help="Number of Samples to get Classes", dest="size")
 
     reportParser = subparsers.add_parser("report", help="Get VirustTotal report")
     reportParser.add_argument('targetfolder', type=str, help="Target Folder")

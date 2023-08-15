@@ -16,12 +16,18 @@ def readData(fileName):
         print("Filename does not exists")
         return False
 
-def getPermissionsFrequncy(data):
+def getPermissionsFrequncy(data, limit):
     permissionFrequency = Counter()
     for application in data:
         permissionFrequency += Counter(application['permissions'])
-    print(permissionFrequency.most_common(20))
+    return permissionFrequency.most_common(limit)
+
+def getClassesFrequency(data, classType, limit):
+    classesFrequency = Counter()
+    for application in data:
+        classesFrequency += Counter(application[classType])
+    return classesFrequency.most_common(limit)
 
 
-getPermissionsFrequncy(readData("data/CICAndMal2017Decoded/permissions.pkl"))
+getPermissionsFrequncy(readData("data/CICAndMal2017Decoded/permissions.pkl"), 10000)
 #def getClassFrequency(data):
