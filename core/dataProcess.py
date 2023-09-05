@@ -1,5 +1,6 @@
 import pickle
 import os
+import random
 from collections import Counter
 
 def writeData(data, dirName, fileName):
@@ -13,21 +14,31 @@ def readData(fileName):
         with open(f"{fileName}", "rb") as f:
             return pickle.load(f)
     else:
-        print("Filename does not exists")
         return False
 
-def getPermissionsFrequncy(data, limit):
+def getSampleSize(fileName):
+    data = readData(fileName)
+    if data:
+        return len(data)
+    else:
+        return False
+
+def getPermissionsFrequncy(fileName, size):
     permissionFrequency = Counter()
-    for application in data:
-        permissionFrequency += Counter(application['permissions'])
-    return permissionFrequency.most_common(limit)
+    data = readData(fileName)
+    if data:
+        random.shuffle(data)
+        for application in data[:size]:
+            permissionFrequency += Counter(application['permissions'])
+    return permissionFrequency
 
-def getClassesFrequency(data, classType, limit):
-    classesFrequency = Counter()
-    for application in data:
-        classesFrequency += Counter(application[classType])
-    return classesFrequency.most_common(limit)
-
-
-getPermissionsFrequncy(readData("data/CICAndMal2017Decoded/permissions.pkl"), 10000)
-#def getClassFrequency(data):
+def getClassesFrequency(fileName, size):
+    classTypes = ['internal', 'external', 'all']
+    classFrequency = {'internal': Counter(), 'external': Counter(), 'all': Counter()}
+    data = readData(fileName)
+    if data:
+        random.shuffle(data)
+        for application in data[:size]:
+            for types in classTypes:
+                classFrequency[types] += Counter(application[types])
+    return classFrequency

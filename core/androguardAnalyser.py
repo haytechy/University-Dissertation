@@ -1,5 +1,4 @@
 import random
-from timeit import default_timer as timer
 from androguard.core.bytecodes import apk, dvm
 import androguard.core.analysis.analysis as analysis
 import os

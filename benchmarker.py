@@ -37,7 +37,6 @@ def permissionsAndClassesAndroguardTime(sampleDir, size):
 if __name__ == "__main__":
     sampleSize = [10, 25, 50, 100]
     times = readData('data/Benchmark/times.pkl')
-    print(times)
     sampleDir = 'datasets/Benchmark'
     decodedDir = 'datasets/BenchmarkDecoded'
     for size in sampleSize:

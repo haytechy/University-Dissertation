@@ -1,5 +1,5 @@
 datasets/
-test/
 __pycache__/
 VSReport/
 config.ini
+data/

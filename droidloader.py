@@ -12,6 +12,7 @@ from configparser import ConfigParser
 from core.classAnalyser import getClasses 
 from core.filterHashes import generateApkHashes
 from core.dataProcess import readData, writeData
+from graphAnalyser import processPermissions, processClasses
 
 config = ConfigParser()
 config.read('config.ini')
@@ -26,12 +27,12 @@ def getHash(query):
     for i in range(len(data)):
         sample = data[i]
         if sample["file_type"] == "apk":
-            hashes.append(sample["sha257_hash"])
+            hashes.append(sample["sha256_hash"])
     return hashes
 
 def downloadSample(dir, hash):
     query = {"query": "get_file", "sha256_hash": hash}
-    response = requests.post(MBURL, data=query, timeout=15, allow_redirects=True)
+    response = requests.post(MBURL, data=query, timeout=60, allow_redirects=True)
     open(f"{dir}/{hash}.zip", "wb").write(response.content)
 
 def downloadSampleVS(dir, hash):
@@ -40,10 +41,10 @@ def downloadSampleVS(dir, hash):
     response = requests.get(url)
     open(f"{dir}/{hash}.zip", "wb").write(response.content)
 
-def getMalwareByFamily(families):
+def getMalwareByFamily(families, limit):
     hashes = []
     for family in families:
-        query = {"query": "get_siginfo", "signature": family, "limit": 1}
+        query = {"query": "get_siginfo", "signature": family, "limit": limit}
         hashes.extend(getHash(query))
     return hashes
 
@@ -57,6 +58,9 @@ def extract(targetdir, outputdir):
         if archive.endswith(".zip"):
             with pyzipper.AESZipFile(f"{targetdir}/{archive}") as zf:
                 zf.extractall(path=outputdir, pwd=bytes("infected", "utf-8"))
+    for file in os.listdir(outputdir):
+        if not file.endswith(".apk"):
+            os.rename(f"{outputdir}/{file}", f"{outputdir}/{file}")
 
 
 def getReport(targetdir, outputfile):
@@ -99,13 +103,12 @@ def getPermissions(targetDir, limit):
     permissionsList = []
     dataset = os.listdir(targetDir) 
     random.shuffle(dataset)
-    limit = limit if limit < len(dataset) else len(dataset)
     for sourceCode in dataset[:limit]:
         permissions = []
         manifest = f"{targetDir}/{sourceCode}/AndroidManifest.xml"
         if os.path.isfile(manifest):
             with open(manifest) as f:
-                permissions = re.findall(r'<uses-permission.[^<]*\/>', f.read()) #Regex to extraction permissions from AnroidManifest
+                permissions = re.findall(r'<uses-permission.*?\/>', f.read()) #Regex to extraction permissions from AnroidManifest
                 permissions = [re.search(r'"(.*?)"', permission).group()[1:-1] for permission in permissions if re.search(r'"(.*?)"', permission)]
         permissionsList.append({"hash": sourceCode, "permissions": set(permissions)})
     return permissionsList
@@ -115,9 +118,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dataset Generator", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     subparsers = parser.add_subparsers(title="subcommand", dest="subcommand", description="subcommand")
     
-    downloadParser = subparsers.add_parser("download", help="download")
+    downloadParser = subparsers.add_parser("download", help="Download Recent Malware samples from Virus Sample hosting platforms")
     downloadParser.add_argument('outputfolder', type=str, help="Output Folder")
-    downloadParser.add_argument('-m', choices=['family', 'recent', 'recentVirusShare'], help="Download Type", dest="mode")
+    downloadParser.add_argument('-m', choices=['MalwareBazaarRecent', 'MalwareBazaarFamily', 'VirusShareRecent'], help="Download Type", dest="mode")
+    downloadParser.add_argument('-s', default=100, type=int, help="Number of Samples to Download", dest="size")
 
     extractParser = subparsers.add_parser("extract", help="Extract folder containg zipped samples")
     extractParser.add_argument('targetfolder', type=str, help="Target Folder")
@@ -138,9 +142,12 @@ if __name__ == "__main__":
     classesParser.add_argument('targetfolder', type=str, help="Target Decoded Sample Folder")
     classesParser.add_argument('-s', default=10, type=int, help="Number of Samples to get Classes", dest="size")
 
-    reportParser = subparsers.add_parser("report", help="Get VirustTotal report")
-    reportParser.add_argument('targetfolder', type=str, help="Target Folder")
-    reportParser.add_argument('-o', help="Output File", dest="outputfile")
+    graphParser = subparsers.add_parser("graph", help="Produce Graphs from two datasets")
+    graphParser.add_argument('targetdata', type=str, help="Target Data")
+    graphParser.add_argument('-t', help="Type of Feature", dest="type")
+    graphParser.add_argument('-d', help="Comparison Data", dest="comparedata")
+    graphParser.add_argument('-s', default=100, type=int, help="Number of Samples Retrieve in each Dataset", dest="size")
+    graphParser.add_argument('-c', default=20, type=int, help="Number of Categories to Display", dest="categorySize")
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -149,18 +156,22 @@ if __name__ == "__main__":
 
     if args.subcommand == "download":
         hashes = []
-        if args.mode == "family":
-            hashes = getMalwareByFamily(["Cerberus", "Hydra", "FluBot", "Octo", "Ermac"])
-        if args.mode == "recent":
-            hashes = getRecentMalware(1000)
-        if args.mode == "recentVirusShare":
-            hashes = readData("VSHashes.pkl")
+        if args.mode == "MalwareBazaarFamily":
+            hashes = getMalwareByFamily(["Cerberus", "Hydra", "FluBot", "Octo", "Ermac"], args.size)
+        if args.mode == "MalwareBazaarRecent":
+            hashes = getRecentMalware(args.size)
+        if args.mode == "VirusShareRecent":
+            data = readData("data/VirusShare/VirusShare_00476.pkl")
+            if data:
+                hashes = data['hashes'][:args.size]
+        else:
+            print("No mode specified")
         outputdir = args.outputfolder
         if not os.path.exists(outputdir):
             os.mkdir(outputdir)
             if hashes:
                 for hash in hashes:
-                    if args.mode == "recentVirusShare":
+                    if args.mode == "VirusShareRecent":
                         downloadSampleVS(outputdir, hash)
                     else:
                         downloadSample(outputdir, hash)
@@ -193,14 +204,20 @@ if __name__ == "__main__":
         md5File = args.targetfile 
         if os.path.exists(md5File):
             outputFileName = os.path.basename(md5File)[:-4]
-            apkHashes = readData(f"data/VirusShare/{outputFileName}.pkl") # Get saved hashes
-            apkHashes = generateApkHashes(md5File, apkHashes)
-            writeData(apkHashes, "VirusShare", outputFileName)
+            fileHashes = readData(f"data/VirusShare/{outputFileName}.pkl") # Get saved hashes
+            if fileHashes:
+                apkHashes, count = generateApkHashes(md5File, fileHashes['hashes'], fileHashes['count'])
+            else:
+                apkHashes, count = generateApkHashes(md5File, [], 0)
+            if apkHashes and count:
+                writeData({"hashes": apkHashes, "count": count}, "VirusShare", outputFileName)
 
     if args.subcommand == "permissions":
         targetdir = args.targetfolder
-        permissions = getPermissions(targetdir, args.size)
         dirName = os.path.basename(targetdir)
+        if dirName == "":
+            dirName = os.path.basename(os.path.dirname(targetdir))
+        permissions = getPermissions(targetdir, args.size)
         if permissions:
             writeData(permissions, dirName, "permissions")
         else:
@@ -208,17 +225,23 @@ if __name__ == "__main__":
 
     if args.subcommand == "classes":
         targetdir = args.targetfolder
-        classes = getClasses(targetdir, args.size)
         dirName = os.path.basename(targetdir)
+        if dirName == "":
+            dirName = os.path.basename(os.path.dirname(targetdir))
+        classes = getClasses(targetdir, args.size)
         if classes:
             writeData(classes, dirName, "classes")
         else:
             print("Invalid Sample")
 
-    if args.subcommand == "report":
-        outputfile = args.outputfile
-        if outputfile is not None:
-            if not os.path.exists(outputfile):
-                getReport(args.targetfolder, outputfile)
-            else:
-                print("Directory Exists")
+    if args.subcommand == "graph":
+        targetdata = args.targetdata
+        comparedata = args.comparedata
+        sampleSize = args.size
+        categorySize = args.categorySize
+        if args.type == "permissions":
+            processPermissions(f"{targetdata}/permissions.pkl", f"{comparedata}/permissions.pkl", categorySize, sampleSize)
+        elif args.type == "classes":
+            processClasses(f"{targetdata}/classes.pkl", f"{comparedata}/classes.pkl", categorySize, sampleSize)
+        else:
+            print("No type specified")

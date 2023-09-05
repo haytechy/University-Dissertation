@@ -13,7 +13,8 @@ def getType(hash):
     try:
         sampleType = response.json()['data']['attributes']['type_description']
         extension = response.json()['data']['attributes']['type_extension']
-        if sampleType == "Android" and extension == "apk":
+        detections = response.json()['data']['attributes']['last_analysis_stats']['malicious']
+        if sampleType == "Android" and extension == "apk" and detections >= 2:
             return hash
         else:
             return None
@@ -25,13 +26,18 @@ def listmd5(file):
         md5List = [md5.strip("\n") for md5 in f.readlines()[6:]]
     return md5List
 
-def generateApkHashes(md5File, apkHashes):
-    if apkHashes:
-        md5List = listmd5(md5File)
-        executor = ThreadPoolExecutor(max_workers=5)
-
-        for hash in executor.map(getType,  md5List[36000:50000]):
+def generateApkHashes(md5File, apkHashes, count, limit=18000):
+    count = 0
+    md5List = listmd5(md5File)
+    executor = ThreadPoolExecutor(max_workers=4)
+    i = 0 
+    if count < len(md5List):
+        for hash in executor.map(getType,  md5List[count:count+limit]):
+            i+=1
             if hash is not None:
                 apkHashes.append(hash)
-    return apkHashes
+        return apkHashes, count+limit
+    else:
+        print("MD5 File exhausted")
+        return False, False
 
