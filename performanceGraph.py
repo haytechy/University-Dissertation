@@ -41,5 +41,3 @@ plt.title(f'Peformance between Droidloader and Androguard')
 plt.xticks(x, timeCategory)
 plt.legend()
 plt.show()
-
-
