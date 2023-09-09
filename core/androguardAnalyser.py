@@ -1,38 +1,30 @@
-import random
-from androguard.core.bytecodes import apk, dvm
-import androguard.core.analysis.analysis as analysis
+from androguard.misc import AnalyzeAPK
 import os
 
 def analyseAPK(file):
-    apkFile = apk.APK(file)
-    dalvik = dvm.DalvikVMFormat(apkFile)
-    dx = analysis.Analysis(dalvik)
+    apkFile, _, dx = AnalyzeAPK(file)
     permissions = [permission for permission in apkFile.get_permissions()]
-    classes = [ dexClass.name[1:-1] for dexClass in list(dx.get_classes())]
-    externalClasses = [ dexClass.name[1:-1] for dexClass in list(dx.get_classes()) if dexClass.is_external()]
+    classes = [ str(dexClass.name[1:-1]) for dexClass in dx.get_classes()]
+    externalClasses = [ str(dexClass.name[1:-1]) for dexClass in dx.get_external_classes()]
     return permissions, classes, externalClasses
 
 def getPermissionsAndClasses(targetDir, limit):
     classesList = []
     permissionsList = []
     decodedSamples = os.listdir(targetDir)
-    random.shuffle(decodedSamples)
-    limit = limit if limit < len(decodedSamples) else len(decodedSamples)
     for application in decodedSamples[:limit]:
+        permissions = set()
         classes = set()
         externalClasses = set()
-        try: #Androguard is known to error sometimes 
-            permissions, apkClass, apkExternalClass = analyseAPK(os.path.join(targetDir, application,))
-            classes.update(apkClass)
-            externalClasses.update(apkExternalClass)
-            classInfo = {
-                "hash": application[:-4],
-                "internal": classes - externalClasses, 
-                "external": externalClasses,
-                "all": classes 
-            }
-            permissionsList.append({"hash": application[:-4], "permissions": set(permissions)})
-            classesList.append(classInfo)
-        except:
-            pass
+        permissions, apkClass, apkExternalClass = analyseAPK(os.path.join(targetDir, application,))
+        classes.update(apkClass)
+        externalClasses.update(apkExternalClass)
+        classInfo = {
+            "hash": application[:-4],
+            "internal": classes - externalClasses, 
+            "external": externalClasses,
+            "all": classes 
+        }
+        permissionsList.append({"hash": application[:-4], "permissions": set(permissions)})
+        classesList.append(classInfo)
     return permissionsList, classesList

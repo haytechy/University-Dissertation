@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 from collections import Counter
-from core.dataProcess import readData, getClassesFrequency, getPermissionsFrequncy, getSampleSize
+from core.dataProcess import readData, getClassesFrequency, getPermissionsFrequncy, getSampleSize, validateAPI
 import os
 import numpy as np
 
@@ -17,11 +17,6 @@ def processSample(file1, file2, size=None):
         size = sampleSize if sampleSize < sampleSize2 else sampleSize2
     return dataset, dataset2, size
 
-def validateAPI(classes, AndroidAPI):
-    for package in AndroidAPI:
-        if  classes.startswith(package):
-            return True
-    return False
 
 def processGraphData(category, featureType, categorySize, sampleSize, frequency, frequency2, dataset, dataset2):
     category = category[::-1]
@@ -56,7 +51,7 @@ def processPermissions(file1, file2, categorySize, sampleSize=None):
 
 def processClasses(file1, file2, categorySize, sampleSize=None):
     dataset, dataset2, size = processSample(file1, file2,  sampleSize)
-    classTypes = ['internal', 'external', 'all', "Android API", "Not Android API"]
+    classTypes = ['internal', 'external', 'all', "Android API", "Non Android API"]
     androidAPI = readData('data/AndroidAPI.pkl')
     categoryList = []
     frequencyList = []
@@ -65,11 +60,12 @@ def processClasses(file1, file2, categorySize, sampleSize=None):
     Data2 = getClassesFrequency(file2, size)
     for types in classTypes: 
         frequency2 = []
-        if types == "Android API" or types == "Not Android API":
-            types = 'all'
+        if types == "Android API" or types == "Non Android API":
             if types == "Android API":
+                types = 'all'
                 filteredData = {key: count for key, count in Data[types].items() if validateAPI(key, androidAPI)}
             else:
+                types = 'all'
                 filteredData = {key: count for key, count in Data[types].items() if not validateAPI(key, androidAPI)}
             category, frequency = formatData(Counter(filteredData), categorySize)
         else:
@@ -79,7 +75,7 @@ def processClasses(file1, file2, categorySize, sampleSize=None):
         for classes in category:
             frequency2.append(Data2[types][classes])
         frequencyList2.append(frequency2)
-    for i in range(4):
+    for i in range(5):
             category = categoryList[i]
             frequency = frequencyList[i]
             frequency2 = frequencyList2[i]

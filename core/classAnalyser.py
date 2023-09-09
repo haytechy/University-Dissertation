@@ -3,6 +3,8 @@ import re
 import random
 
 def formatClass(item):
+    if "const-class" in item:
+        return item.split(" ")[2][:-1]
     if "}," in item and ";->" in item:
         return item.split("},")[1].split(";")[0].replace(" ", "")
     else:
@@ -19,10 +21,10 @@ def className(root, smaliFile):
 def returnClasses(root, smaliFile):
     smaliCode = os.path.join(root, smaliFile)
     with open(smaliCode, "r") as f:
-        method = re.findall(r"invoke-virtual.*|invoke-super.*|invoke-direct.*|invoke-static.*|invoke-interface.*", f.read())
-        if method:
-            method = [formatClass(item)[1:] if formatClass(item).startswith("L") else formatClass(item)[2:] for item in method if item != ""]
-    return method
+        classes = re.findall(r"invoke-virtual.*|invoke-super.*|invoke-direct.*|invoke-static.*|invoke-interface.*|const-class.*", f.read())
+        if classes:
+            classes = [formatClass(item)[1:] if formatClass(item).startswith("L") else formatClass(item)[2:] for item in classes if item != ""]
+    return classes
 
 def getSmaliFolders(sourceCode):
     return [file for file in sourceCode if re.search(r'smali_classes\d+|smali', file)]

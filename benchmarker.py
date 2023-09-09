@@ -7,15 +7,15 @@ import random
 import os
 import shutil
 
-def generateSample(targetDir, size, datasets=['datasets/MalwareBazaarRecent', 'datasets/CICAndMal2017']):
+def generateSample(targetDir, size):
+    datasets=['datasets/MalwareBazaarRecent', 'datasets/CICAndMal2017', 'datasets/VirusShareRecent', 'datasets/CICMalDroid2020']
     samples = []
     for dataset in datasets:
-        datasetSamples = []
         for root, _, files in os.walk(dataset):
             for sample in files:
-                datasetSamples.append(os.path.join(root, sample))
-        samples.append(datasetSamples)
-    samples = random.sample(samples[0], size //2) + random.sample(samples[1], size//2)
+                samples.append(os.path.join(root, sample))
+    random.shuffle(samples)
+    samples = samples[:size]
     for sample in samples:
         shutil.copy(sample, targetDir)
 
@@ -35,8 +35,10 @@ def permissionsAndClassesAndroguardTime(sampleDir, size):
     return permissions, classes
 
 if __name__ == "__main__":
-    sampleSize = [10, 25, 50, 100]
+    sampleSize = [10, 25, 50]
     times = readData('data/Benchmark/times.pkl')
+    if not times:
+        times = []
     sampleDir = 'datasets/Benchmark'
     decodedDir = 'datasets/BenchmarkDecoded'
     for size in sampleSize:

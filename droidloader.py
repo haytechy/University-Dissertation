@@ -144,7 +144,7 @@ if __name__ == "__main__":
 
     graphParser = subparsers.add_parser("graph", help="Produce Graphs from two datasets")
     graphParser.add_argument('targetdata', type=str, help="Target Data")
-    graphParser.add_argument('-t', help="Type of Feature", dest="type")
+    graphParser.add_argument('-t', choices=['permissions', 'classes'], help="Type of Feature", dest="type")
     graphParser.add_argument('-d', help="Comparison Data", dest="comparedata")
     graphParser.add_argument('-s', default=100, type=int, help="Number of Samples Retrieve in each Dataset", dest="size")
     graphParser.add_argument('-c', default=20, type=int, help="Number of Categories to Display", dest="categorySize")

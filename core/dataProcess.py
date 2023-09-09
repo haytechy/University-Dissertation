@@ -16,12 +16,25 @@ def readData(fileName):
     else:
         return False
 
+def average(numbers):
+    if len(numbers) == 0:
+        return 0  
+    total = sum(numbers)
+    average = total / len(numbers)
+    return average
+
 def getSampleSize(fileName):
     data = readData(fileName)
     if data:
         return len(data)
     else:
         return False
+
+def validateAPI(classes, AndroidAPI):
+    for package in AndroidAPI:
+        if  classes.startswith(package):
+            return True
+    return False
 
 def getPermissionsFrequncy(fileName, size):
     permissionFrequency = Counter()
